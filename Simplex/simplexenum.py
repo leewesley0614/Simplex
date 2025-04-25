@@ -2,8 +2,7 @@ from enum import Enum
 
 class SimplexState(Enum):
     OPTIMAL = 1
-    INFEASIBLE = 2
-    UNBOUND = 3
+    UNBOUND = 2
 
 class MatrixState(Enum):
     COMMON = 1

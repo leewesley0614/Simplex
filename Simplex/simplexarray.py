@@ -15,7 +15,6 @@ class SimplexArray(np.ndarray):
     
     def __init__(self, input_array = None, state:MatrixState = MatrixState.COMMON):
         self.state_ = state
-        self
 
 
     def GetColumns(self, colindexs):

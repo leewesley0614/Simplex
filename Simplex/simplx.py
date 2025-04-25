@@ -16,74 +16,40 @@ class Simplex:
         self.b_:np.ndarray = b      # b_ is resource vector
         self.c_:np.ndarray = c      # c_ is cost coefficient
         self.basecolidx_:list = basecolidx   # base column index
-        self.x_:np.ndarray = None
+        self.nonbasecolidx_:list = None
         self.state_: SimplexState = None
         self.obj_ = None        # objective funciton
-        self.B_ = None
-        self.N_ = None
-        self.cb_ = None
-        self.cn_ = None
-        self.xb_ = None
-        self.xn_ = None
-
-    def GetBase(self):
-        B = self.A_[:, self.basecolidx_]
-        c_b = self.c_[self.basecolidx_]
-        return B, c_b
+        self.B_ = None # base matrix
+        self.N_ = None # non-base matrix
+        self.cb_ = None # base cost coefficient
+        self.cn_ = None # non-base cost coefficient
+        self.xb_ = None # base var
+        self.xn_ = None # non-base var
+        self.SetBase() # set base
+        self.SetNonBase() # set non base
     
-    def GetNonBase(self):
+    def SetBase(self):
+        self.B_ = self.A_[:, self.basecolidx_]
+        self.cb_ = self.c_[self.basecolidx_]
+    
+    def SetNonBase(self):
         col_idx = list(range(self.A_.shape[1]))
-        nonbasecolidx = [Item for Item in col_idx if Item not in self.basecolidx_]
-        N = self.A_[:, nonbasecolidx]
-        c_n = self.c_[nonbasecolidx]
-        return N, c_n
+        self.nonbasecolidx_ = [ Item for Item in col_idx if Item not in self.basecolidx_]
+        self.N_ = self.A_[:, self.nonbasecolidx_]
+        self.cn_ = self.c_[self.nonbasecolidx_]
     
-    
-    '''Get IN Base idx'''
-    def GetInBaseIdx(self): 
-        reduced_cost = self.GetReducedCost() # get reduced cost
-        max_reduced_cost = reduced_cost.max() # get maximum reduced cost
-        if(max_reduced_cost <= 0 ): 
-            self.state_ = SimplexState.OPTIMAL
-            return None
-        else:
-            in_base_idx = np.argmax(max_reduced_cost) # get in base variable index subscript, for N_
-            return in_base_idx
-    
-    '''Get In Base Column'''
-    def GetInBaseCol(self):
-        in_base_idx = self.GetInBaseIdx()
-        return self.N_[:, in_base_idx]
-    
-    '''Get InBase Var'''
-    def GetInBaseVar(self):
-        in_base_idx = self.GetInBaseIdx()
-        return self.xn_[in_base_idx]
 
-    def GetOutBaseIdx(self):
-        pk = self.GetInBaseCol()
-        yk = np.linalg.inv(self.B_) @ pk
-        bool_mask = yk > 0 # 判断哪些yk小于0
-        pos_yk = yk[bool_mask]
-        pos_yk_idx = np.where(bool_mask)[0]
-
-        if(pos_yk.size()==0): 
-            self.state_ = SimplexState.UNBOUND
-            raise SimplexException("问题不存在有限最优解")
-        
-        b_bar = np.linalg.inv(self.B_) @ self.b_
-        xk_val = np.min(b_bar[:, pos_yk_idx] / pos_yk)
-        out_base_idx = pos_yk_idx[np.argmin(b_bar[:, pos_yk_idx] / pos_yk)]
-        return out_base_idx, xk_val
+    def ShowBase(self):
+        print(f"CURRENT BASE VAR: x{self.basecolidx_}\n",
+              f"CURRENT BAER MATRIX:\n{self.B_}\n",
+              f"CURRENT THE VALUE OF BASE COST:{self.cb_}\n",
+              f"CURRENT THE VALUE OF BASE VARIABLE: {self.xb_}")
     
-    def GetOutBaseCol(self):
-        out_base_idx, _ = self.GetOutBaseIdx()
-        return self.B_[:, out_base_idx]
-    
-    def GetOutBaseVar(self):
-        out_base_idx, _ = self.GetOutBaseIdx()
-        return self.xb_[out_base_idx]
-
+    def ShowNonBase(self):
+        print(f"CURRENT NON BASE VAR: x{self.nonbasecolidx_}",
+              f"CURRENT NON BAER MATRIX:\n{self.N_}\n",
+              f"CURRENT NON THE VALUE OF BASE COST:{self.cn_}\n",
+              f"CURRENT THE VALUE OF NON BASE VARIABLE: {self.xn_}")
 
     def CalReducedCost(self): # calculate reduced cost
         return self.cb_ @ np.linalg.inv(self.B_) @ self.N_ - self.cn_
@@ -95,16 +61,47 @@ class Simplex:
         self.basecolidx_[out_base_idx] = self.nonbasecolidx_[in_base_idx]
         self.nonbasecolidx_[in_base_idx] = in_var
         # 交换列
-        self.SetBase(self.basecolidx_)
-        self.SetNonBase(self.nonbasecolidx_)
+        in_col = self.B_[:, out_base_idx]
+        self.B_[:, out_base_idx] = self.N_[:, in_base_idx]
+        self.N_[:, in_base_idx] = in_col
+        # 交换成本系数
+        in_cost = self.cb_[out_base_idx]
+        self.cb_[out_base_idx] = self.cn_[in_base_idx]
+        self.cn_[in_base_idx] = in_cost
 
-        
-    
-
-    
-    
     def Run(self):
-        self.xb_
+        while(self.state_ != SimplexState.OPTIMAL):
+            self.xb_ = np.linalg.inv(self.B_) @ self.b_
+            self.xn_ = np.zeros(len(self.nonbasecolidx_))
+            self.obj_ = self.cb_ @ self.xb_ # calculate objective function
+            self.ShowBase()
+            reduced_cost = self.CalReducedCost() # calculate the reduced cost of non-base var
+            if(reduced_cost.max() <= 0): # 最大检验数小于等于0，现行基本可行解为最优解
+                self.state_ = SimplexState.OPTIMAL
+            else:
+                in_base_idx = np.argmax(reduced_cost) # 入基变量索引
+                pk = self.N_[:, in_base_idx] # 入基变量对应的列系数
+                yk = np.linalg.inv(self.B_) @ pk
+                if(yk.max() <= 0):
+                    self.state_ =SimplexState.UNBOUND
+                    break
+                else:
+                    # 记录yk > 0 的索引
+                    pos_yk_idx = np.where(yk > 0)[0]
+                    out_base_idx_script = np.argmin(self.xb_[pos_yk_idx] /  yk[pos_yk_idx])
+                    out_base_idx = pos_yk_idx[out_base_idx_script] # 出基变量索引
+                    self.Swap(in_base_idx, out_base_idx) # 换基
+        match self.state_:
+            case(SimplexState.OPTIMAL):
+                print("Simplex State: OPTIMAL\n",
+                      f"BASE VAR INDEX:x_{self.basecolidx_}\n",
+                      f"BASE VAR VALUE:{self.xb_}\n",
+                      f"OPTIMAL VALUE: {self.obj_}")
+            case(SimplexState.UNBOUND):
+                print("Simplex State: UNBOUND")
+
+
+
 
 
 
@@ -119,13 +116,7 @@ if __name__ == "__main__":
     basecolidx = [2, 3, 4]
     ## Initialize, 初始化
     simplex = Simplex(SimplexArray(test_data), np.array(b), np.array(c), basecolidx)
-    cur_base, cur_cb = simplex.GetBase()
-    cur_nonbase, cur_cn = simplex.GetNonBase()
-    print(f"Current Base Matrix: \n {cur_base} \n",
-          f"Current cb: {cur_cb} \n")
-    
-    print(f"Current NonBase Matrix: \n {cur_nonbase} \n",
-          f"Current cn: {cur_cn} \n")
+    simplex.Run()
     
 
     
