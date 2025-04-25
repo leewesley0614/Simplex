@@ -43,7 +43,7 @@ class Simplex:
         print(f"CURRENT BASE VAR: x{self.basecolidx_}\n",
               f"CURRENT BAER MATRIX:\n{self.B_}\n",
               f"CURRENT THE VALUE OF BASE COST:{self.cb_}\n",
-              f"CURRENT THE VALUE OF BASE VARIABLE: {self.xb_}")
+              f"CURRENT THE VALUE OF BASE VARIABLE:{self.xb_}")
     
     def ShowNonBase(self):
         print(f"CURRENT NON BASE VAR: x{self.nonbasecolidx_}",
@@ -107,13 +107,22 @@ class Simplex:
 
 
 if __name__ == "__main__":
-    ## Test Data
-    test_data = [[-1, 2, 1, 0, 0],
-                 [2, 3, 0, 1, 0],
-                 [1, -1, 0, 0, 1]]
-    c = [-4, -1, 0, 0, 0]
-    b = [4, 12, 3]
-    basecolidx = [2, 3, 4]
+    ## Test Data1
+
+    # test_data = [[-1, 2, 1, 0, 0],
+    #              [2, 3, 0, 1, 0],
+    #              [1, -1, 0, 0, 1]]
+    # c = [-4, -1, 0, 0, 0]
+    # b = [4, 12, 3]
+    # basecolidx = [2, 3, 4]
+
+    ## Test Data2
+    test_data = [[1, 1, -2, 1, 0, 0],
+                 [2, -1, 4, 0, 1, 0],
+                 [-1, 2, -4, 0, 0, 1]]
+    c = [1, -2, 1, 0, 0, 0]
+    b = [10, 8, 4]
+    basecolidx = [3, 4, 5]
     ## Initialize, 初始化
     simplex = Simplex(SimplexArray(test_data), np.array(b), np.array(c), basecolidx)
     simplex.Run()
